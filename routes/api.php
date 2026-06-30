@@ -67,6 +67,7 @@ Route::middleware(['auth:sanctum'])->group(function () {
         Route::get('/slotsChecker', [AppointmentController::class, 'slotsChecker']);
 
         Route::post('/saveAppointment', [AppointmentController::class, 'saveAppointment']);
+        Route::post('/sendSMS', [AppointmentController::class, 'sendSMS']);
     });
 
     Route::prefix('Viewing')->group(function () {
