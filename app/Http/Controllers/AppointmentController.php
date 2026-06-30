@@ -10,6 +10,7 @@ use Carbon\Carbon;
 
 
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Http;
 
 class AppointmentController extends Controller
 {
@@ -63,7 +64,7 @@ class AppointmentController extends Controller
         }
 
         $query = "SELECT 
-                COUNT(*) as countSlot 
+                COUNT(id) as countSlot 
             FROM `opd_appointment`
             WHERE status = 0
                 AND datesked = ?
@@ -248,5 +249,77 @@ class AppointmentController extends Controller
                 'errors' => $errors,
             ], empty($errors) ? 200 : 500);
         }
+    }
+
+    // public function sendSMS(Request $request)
+    // {
+    //     $response = Http::withOptions([
+    //         'verify' => false,
+    //     ])->timeout(30)->get(config('services.sms.endpoint'), [
+    //         'username'    => config('services.sms.username'),
+    //         'password'    => config('services.sms.password'),
+    //         'destination' => $request->contact,
+    //         'text'        => $request->message,
+    //         'source'      => config('services.sms.source'),
+    //     ]);
+
+    //     if ($response->successful()) {
+    //         return [
+    //             'success' => true,
+    //             'response' => $response->body(),
+    //         ];
+    //     }
+
+    //     return [
+    //         'success' => false,
+    //         'status' => $response->status(),
+    //         'response' => $response->body(),
+    //     ];
+    // }
+
+    public function sendSMS(Request $request)
+    {
+        $url = "http://192.163.10.70/edifylive/opdappointment_masterfile/api/sendSms-api.php";
+
+        $ch = curl_init();
+
+        curl_setopt_array($ch, [
+            CURLOPT_URL => $url,
+            CURLOPT_POST => true,
+
+            // 🔥 CRITICAL FIX: force proper form encoding
+            CURLOPT_POSTFIELDS => json_encode([
+                "method" => "sendSMS",
+                'contact' => $request->contact,
+                'message' => $request->message,
+            ]),
+
+            CURLOPT_RETURNTRANSFER => true,
+            CURLOPT_TIMEOUT => 30,
+
+            CURLOPT_HTTPHEADER => [
+                'Content-Type: application/x-www-form-urlencoded',
+                'Accept: text/plain',
+            ],
+
+            CURLOPT_USERAGENT => 'Mozilla/5.0',
+        ]);
+
+        $response = curl_exec($ch);
+        $error = curl_error($ch);
+
+        curl_close($ch);
+
+        if ($error) {
+            return [
+                'success' => false,
+                'error' => $error,
+            ];
+        }
+
+        return [
+            'success' => true,
+            'response' => $response,
+        ];
     }
 }
