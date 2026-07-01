@@ -487,6 +487,33 @@ class ServiceController extends Controller
         ], empty($errors) ? 200 : 500);
     }
 
+    public function fetchNumberOfPatients($date, $timeId, $serviceId, $type = null)
+    {
+        $opddb = DB::connection('opddb');
+
+        $condition = '';
+        $params = [$date, $timeId, $serviceId];
+
+        if ($serviceId == 82) {
+            $condition = "AND purpose = ?";
+            $params[] = $type;
+        } else {
+            $condition = "AND (reservationcode = '' OR reservationcode IS NULL)";
+        }
+
+        $query = "SELECT 
+                COUNT(id) as countSlot
+            FROM opd_appointment
+            WHERE status = 0
+                AND datesked = ?
+                AND timesked = ?
+                AND service = ?
+                $condition
+        ";
+
+        return $opddb->select($query, $params)[0]->countSlot ?? 0;
+    }
+
     public function fetchAppointmentTime(Request $request)
     {
 
@@ -529,6 +556,19 @@ class ServiceController extends Controller
         ];
 
         $result = $opddb->select($query, $params);
+
+        foreach ($result as $time) {
+            $slotCount = $this->fetchNumberOfPatients(
+                $time->date,
+                $time->opdtimeid,
+                $time->opdserviceid,
+                $time->type ?? null
+            );
+
+            $remaining = $time->slots - $slotCount;
+
+            $time->remaining = $remaining ?? 0;
+        }
 
         return response()->json([
             'status' => empty($errors),
