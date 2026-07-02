@@ -457,10 +457,11 @@ class ServiceController extends Controller
 
     public function fetchAppointmentSlots(Request $request)
     {
-
         $errors = [];
         $result = null;
         $opddb = DB::connection('opddb');
+
+        $currTime = date('H:i:s');
 
         $query = "SELECT *, d.date AS datesched 
             FROM opd_dateslots d 
@@ -470,12 +471,30 @@ class ServiceController extends Controller
             AND h.date IS NULL
             AND t.type = ?
             AND d.status = 1
-            -- AND d.date >= CURDATE(); -- add this to live
+            AND (
+                d.date > CURDATE()
+                OR (
+                    d.date = CURDATE()
+                    AND (SELECT 
+                        COUNT(opd_dateslots.id)
+                    FROM opd_timeslots 
+                    INNER JOIN opd_time on opd_time.id = opd_timeslots.opdtimeid
+                    INNER JOIN opd_dateslots on opd_dateslots.id = opd_timeslots.opddateslotsid
+                    WHERE opd_dateslots.date = d.date
+                        AND opd_dateslots.opdserviceid = ?
+                        AND opd_timeslots.type = ?
+                        AND opd_time.opdtime > ?
+                    ) > 0
+                )
+            ); 
         ";
 
         $params = [
             $request->TypeOfService,
-            $request->PurposeOfAppointment
+            $request->PurposeOfAppointment,
+            $request->TypeOfService,
+            $request->PurposeOfAppointment,
+            $currTime,
         ];
 
         $result = $opddb->select($query, $params);
